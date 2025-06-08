@@ -1,0 +1,21 @@
+{{- if .Values.headlessService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "bookkeeper.fullname" . }}-headless
+  labels:
+    {{- include "bookkeeper.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: bookie
+      protocol: TCP
+      name: bookie
+    - port: {{ .Values.service.httpPort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "bookkeeper.selectorLabels" . | nindent 4 }}
+{{- end }}
