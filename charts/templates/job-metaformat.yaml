@@ -1,0 +1,53 @@
+{{- if .Values.bookkeeper.metaformat.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bookkeeper.fullname" . }}-metaformat
+  labels:
+    {{- include "bookkeeper.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "bookkeeper.selectorLabels" . | nindent 8 }}
+        job: metaformat
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: metaformat
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: BK_metadataServiceUri
+              value: {{ .Values.zookeeper.metadataServiceUri | quote }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              echo "Formatting BookKeeper metadata..."
+              
+              # Wait for ZooKeeper to be available
+              echo "Waiting for ZooKeeper to be available..."
+              until /opt/bookkeeper/bin/bookkeeper shell metaformat -n 2>/dev/null || [ $? -eq 1 ]; do
+                echo "ZooKeeper not ready, waiting..."
+                sleep 5
+              done
+              
+              # Check if metadata already exists
+              if /opt/bookkeeper/bin/bookkeeper shell metaformat -n; then
+                echo "BookKeeper metadata already exists, skipping format"
+              else
+                echo "Formatting BookKeeper metadata..."
+                {{- if .Values.bookkeeper.metaformat.force }}
+                /opt/bookkeeper/bin/bookkeeper shell metaformat -f
+                {{- else }}
+                /opt/bookkeeper/bin/bookkeeper shell metaformat
+                {{- end }}
+                echo "BookKeeper metadata format completed successfully"
+              fi
+{{- end }}
