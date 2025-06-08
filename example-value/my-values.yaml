@@ -1,0 +1,13 @@
+replicaCount: 3
+zookeeper:
+  metadataServiceUri: "zk://my-zookeeper.zookeeper.svc.cluster.local:2181/bookkeeper"
+persistence:
+  size: 20Gi
+  storageClass: "standard"
+resources:
+  requests:
+    memory: 2Gi
+    cpu: 1000m
+  limits:
+    memory: 4Gi
+    cpu: 2000m
