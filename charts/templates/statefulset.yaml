@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "bookkeeper.fullname" . }}
+  labels:
+    {{- include "bookkeeper.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "bookkeeper.fullname" . }}-headless
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bookkeeper.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "bookkeeper.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.bookkeeper.metaformat.enabled }}
+      initContainers:
+        - name: metaformat
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: BK_metadataServiceUri
+              value: {{ .Values.zookeeper.metadataServiceUri | quote }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              echo "Checking if BookKeeper metadata exists..."
+              
+              # Only format if this is the first pod (bookkeeper-0) to avoid race conditions
+              if [[ "${HOSTNAME##*-}" == "0" ]]; then
+                echo "This is the first pod, checking metadata format..."
+                
+                # Check if metadata already exists
+                if /opt/bookkeeper/bin/bookkeeper shell metaformat -n; then
+                  echo "Metadata already exists, skipping format"
+                else
+                  echo "Metadata does not exist, formatting..."
+                  {{- if .Values.bookkeeper.metaformat.force }}
+                  /opt/bookkeeper/bin/bookkeeper shell metaformat -f
+                  {{- else }}
+                  /opt/bookkeeper/bin/bookkeeper shell metaformat
+                  {{- end }}
+                  echo "Metadata format completed"
+                fi
+              else
+                echo "Not the first pod, waiting for metadata to be available..."
+                # Wait for metadata to be available
+                until /opt/bookkeeper/bin/bookkeeper shell metaformat -n; do
+                  echo "Waiting for metadata to be formatted by first pod..."
+                  sleep 5
+                done
+                echo "Metadata is available"
+              fi
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: bookie
+              containerPort: {{ .Values.bookkeeper.config.bookiePort }}
+              protocol: TCP
+            - name: http
+              containerPort: {{ .Values.bookkeeper.config.httpServerPort }}
+              protocol: TCP
+          env:
+            - name: BK_zkServers
+              value: {{ required "ZooKeeper metadata service URI is required" .Values.zookeeper.metadataServiceUri | quote }}
+            - name: BK_metadataServiceUri
+              value: {{ .Values.zookeeper.metadataServiceUri | quote }}
+            - name: BK_bookiePort
+              value: {{ .Values.bookkeeper.config.bookiePort | quote }}
+            - name: BK_httpServerPort
+              value: {{ .Values.bookkeeper.config.httpServerPort | quote }}
+            - name: BK_journalDirectory
+              value: {{ .Values.bookkeeper.journalDirectory | quote }}
+            - name: BK_ledgerDirectories
+              value: {{ .Values.bookkeeper.ledgerDirectories | quote }}
+            - name: BK_indexDirectories
+              value: {{ .Values.bookkeeper.indexDirectories | quote }}
+            - name: BK_journalPreAllocSizeMB
+              value: {{ .Values.bookkeeper.config.journalPreAllocSizeMB | quote }}
+            - name: BK_enableStatistics
+              value: {{ .Values.bookkeeper.config.enableStatistics | quote }}
+            - name: BK_gcWaitTime
+              value: {{ .Values.bookkeeper.config.gcWaitTime | quote }}
+            - name: BK_entryLogSizeLimit
+              value: {{ .Values.bookkeeper.config.entryLogSizeLimit | quote }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /opt/bookkeeper/data
+            - name: config
+              mountPath: /opt/bookkeeper/conf/bk_server.conf
+              subPath: bk_server.conf
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "bookkeeper.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
