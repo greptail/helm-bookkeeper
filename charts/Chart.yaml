@@ -1,0 +1,6 @@
+apiVersion: v2
+name: bookkeeper
+description: A Helm chart for Apache BookKeeper StatefulSet cluster
+type: application
+version: 0.1.0
+appVersion: "4.16.1"
