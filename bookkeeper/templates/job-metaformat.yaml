@@ -17,10 +17,18 @@ spec:
         job: metaformat
     spec:
       restartPolicy: OnFailure
+      volumes:
+        - name: bk-config
+          configMap:
+            name: {{ include "bookkeeper.fullname" . }}-config
       containers:
         - name: metaformat
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - name: bk-config
+              mountPath: /opt/bookkeeper/conf/bk_server.conf
+              subPath: bk_server.conf
           env:
             - name: BK_metadataServiceUri
               value: {{ .Values.zookeeper.metadataServiceUri | quote }}
@@ -39,14 +47,14 @@ spec:
               done
               
               # Check if metadata already exists
-              if /opt/bookkeeper/bin/bookkeeper shell metaformat -n; then
+              if /opt/bookkeeper/bin/bookkeeper shell metaformat -n ; then
                 echo "BookKeeper metadata already exists, skipping format"
               else
                 echo "Formatting BookKeeper metadata..."
                 {{- if .Values.bookkeeper.metaformat.force }}
-                /opt/bookkeeper/bin/bookkeeper shell metaformat -f
+                /opt/bookkeeper/bin/bookkeeper shell metaformat -n -f
                 {{- else }}
-                /opt/bookkeeper/bin/bookkeeper shell metaformat
+                /opt/bookkeeper/bin/bookkeeper shell metaformat -n
                 {{- end }}
                 echo "BookKeeper metadata format completed successfully"
               fi

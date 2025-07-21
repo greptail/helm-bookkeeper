@@ -1,9 +1,11 @@
 replicaCount: 3
 zookeeper:
-  metadataServiceUri: "zk://my-zookeeper.zookeeper.svc.cluster.local:2181/bookkeeper"
+  servers:
+    - tp-zookeeper:2181
+  metadataServiceUri: "zk://tp-zookeeper:2181/bookkeeper"
 persistence:
   size: 20Gi
-  storageClass: "standard"
+  storageClass: "nfs-client"
 resources:
   requests:
     memory: 2Gi
@@ -11,3 +13,13 @@ resources:
   limits:
     memory: 4Gi
     cpu: 2000m
+bookkeeper:
+  metaformat:
+    enabled: false
+    force: true
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  fsGroup: 0
+podSecurityContext:
+  runAsNonRoot: false

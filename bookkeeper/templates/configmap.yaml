@@ -4,14 +4,20 @@ metadata:
   name: {{ include "bookkeeper.fullname" . }}-config
   labels:
     {{- include "bookkeeper.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
 data:
   bk_server.conf: |
     # BookKeeper server configuration
     bookiePort={{ .Values.bookkeeper.config.bookiePort }}
     httpServerPort={{ .Values.bookkeeper.config.httpServerPort }}
+    httpServerEnabled={{ .Values.bookkeeper.config.httpServerEnabled }}
+    httpServerClass=org.apache.bookkeeper.http.vertx.VertxHttpServer
+    useHostNameAsBookieID=true
     
     # ZooKeeper settings
-    zkServers={{ .Values.zookeeper.metadataServiceUri }}
+    zkServers={{ .Values.zookeeper.servers | join "," }}
     metadataServiceUri={{ .Values.zookeeper.metadataServiceUri }}
     
     # Storage settings
