@@ -21,7 +21,7 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if .Values.bookkeeper.metaformat.enabled }}
+      {{- if .Values.bookkeeper.init.metaformat.enabled }}
       initContainers:
         - name: metaformat
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -114,6 +114,7 @@ spec:
         - name: config
           configMap:
             name: {{ include "bookkeeper.fullname" . }}-config
+            defaultMode: 0644
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

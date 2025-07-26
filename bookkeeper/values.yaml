@@ -12,8 +12,9 @@ fullnameOverride: ""
 
 # ZooKeeper configuration
 zookeeper:
-  # ZooKeeper metadata service URI (required)
-  metadataServiceUri: "zk://zookeeper:2181/ledgers"
+  servers:
+    - tp-zookeeper:2181
+  metadataServiceUri: "zk://tp-zookeeper:2181/bookkeeper"
 
 # BookKeeper configuration
 bookkeeper:
@@ -28,13 +29,16 @@ bookkeeper:
     enabled: true
     # Force format even if metadata exists (dangerous - only for development)
     force: false
-  
+  init:
+   metaformat:
+    enabled: false 
   # BookKeeper specific settings
   config:
     # Bookie port
     bookiePort: 3181
     # HTTP server port
     httpServerPort: 8080
+    httpServerEnabled: true
     # Number of journal files to pre-allocate
     journalPreAllocSizeMB: 16
     # Enable statistics
